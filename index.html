@@ -620,10 +620,10 @@ function updateBot(p){
 // ============ COLLISION ============
 function processEating(){
   for(let fi=foods.length-1;fi>=0;fi--){const f=foods[fi];let e=false;
-    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;updateRadius(c);const eatRange=c.radius*(p.buffData.eatRangeMult||1);if(dist(c,f)<eatRange){c.mass+=f.mass*.4*(p.buffData.foodGainMult||1);p.foodEaten++;spawnParticles(f.x,f.y,f.color,4,3,3);if(p===player)sfxEat();foods.splice(fi,1);e=true;break}}if(e)break}
+    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;updateRadius(c);const eatRange=c.radius*(p.buffData.eatRangeMult||1);if(dist(c,f)<eatRange){c.mass+=f.mass*.6*(p.buffData.foodGainMult||1);p.foodEaten++;spawnParticles(f.x,f.y,f.color,4,3,3);if(p===player)sfxEat();foods.splice(fi,1);e=true;break}}if(e)break}
   }
   for(let si=superFoods.length-1;si>=0;si--){const sf=superFoods[si];let e=false;
-    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,sf)<c.radius){c.mass+=sf.mass*.5*(p.buffData.superFoodGainMult||1);spawnParticles(sf.x,sf.y,'#ffd700',20,6,5);sfxEat();superFoods.splice(si,1);e=true;break}}if(e)break}
+    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,sf)<c.radius){c.mass+=sf.mass*.8*(p.buffData.superFoodGainMult||1);spawnParticles(sf.x,sf.y,'#ffd700',20,6,5);sfxEat();superFoods.splice(si,1);e=true;break}}if(e)break}
   }
   for(let ei=ejected.length-1;ei>=0;ei--){const e=ejected[ei];if(!e.alive)continue;e.x+=e.vx;e.y+=e.vy;e.vx*=.95;e.vy*=.95;e.life-=.016;if(e.life<=0){e.alive=false;ejected.splice(ei,1);continue}let eaten=false;
     for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,e)<c.radius){c.mass+=e.mass*.4;ejected.splice(ei,1);eaten=true;break}}if(eaten)break}
@@ -735,12 +735,12 @@ function update(){
       }
     }
   }
-  // wormhole teleport
+  // wormhole teleport (with 2s cooldown per cell)
   for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;w1.pulse+=.05;w2.pulse+=.05;
     for(const p of players){if(!p.alive)continue;
-      for(const c of p.cells){if(c.mass<1)continue;
-        if(dist(c,w1)<w1.radius+c.radius){c.x=w2.x+rand(-5,5);c.y=w2.y+rand(-5,5);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
-        if(dist(c,w2)<w2.radius+c.radius){c.x=w1.x+rand(-5,5);c.y=w1.y+rand(-5,5);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
+      for(const c of p.cells){if(c.mass<1||(c._lastWarp&&Date.now()-c._lastWarp<2000))continue;const now=Date.now();
+        if(dist(c,w1)<w1.radius+c.radius){c.x=w2.x+rand(30,50)*(Math.random()<.5?1:-1);c.y=w2.y+rand(30,50)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
+        if(dist(c,w2)<w2.radius+c.radius){c.x=w1.x+rand(30,50)*(Math.random()<.5?1:-1);c.y=w1.y+rand(30,50)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
       }
     }
   }
@@ -1220,7 +1220,7 @@ function startGame(name){
 
   player=createPlayer('player',myName,false);
   if(playerData.unlocks.length)player.color=playerData.unlocks[playerData.unlocks.length-1];
-  player.cells=[createCell(CFG.MAP/2,CFG.MAP/2,15)];
+  player.cells=[createCell(CFG.MAP/2,CFG.MAP/2,30)];
   players.push(player);
 
   const botNames=['小萌球','大胖球','闪电球','暗影球','火焰球','冰霜球','雷电球','旋风球','岩石球','水晶球','暗黑球','泡泡球','毒液球','弹性球','流星球','幻影球','钢铁球','寒冰球'];
@@ -1230,8 +1230,8 @@ function startGame(name){
 
   player.buffData=createDefaultBuffData();player.ownedBuffs=[];
   buffTimer=Date.now();buffInterval=15000;buffPickCount=0;
-  CFG.DECAY_RATE=0.003;CFG.DECAY_INTERVAL=3000;CFG.SUPER_FOOD_INTERVAL=18000;
-  for(let i=0;i<5;i++){const bot=createPlayer('boss_'+i,['暴走球','狂怒球','毁灭球','混沌球','暗影'][i],true);bot.cells=[createCell(rand(100,CFG.MAP-100),rand(100,CFG.MAP-100),rand(20,35))];players.push(bot)}
+  CFG.DECAY_RATE=0.002;CFG.DECAY_INTERVAL=3500;CFG.SUPER_FOOD_INTERVAL=12000;CFG.FOOD_COUNT=900;
+  for(let i=0;i<5;i++){const bot=createPlayer('boss_'+i,['暴走球','狂怒球','毁灭球','混沌球','暗影'][i],true);bot.cells=[createCell(rand(100,CFG.MAP-100),rand(100,CFG.MAP-100),rand(25,45))];players.push(bot)}
 
   spawnFoods();
   const lv=playerData.level;document.querySelector('#startScreen .rank').textContent=`${RANK_NAMES[getRank(lv)]} Lv.${lv}`;
