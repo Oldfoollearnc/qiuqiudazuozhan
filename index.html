@@ -493,7 +493,7 @@ function announce(text,color='#fff'){
 // ============ GAME STATE ============
 let camera={x:0,y:0},mouse={x:W()/2,y:H()/2},zoom=1;
 let foods=[],spikes=[],superFoods=[],ejected=[],players=[],gameRunning=false,animId=null;
-let blackHoles=[],wormholes=[],bhTimer=0,whTimer=0;
+let secretRealms=[],wormholes=[],srTimer=0,whTimer=0,inRealm=false,realmReturn=null,realmTreasures=[],realmTimer=0;
 let player=null,keys={},myName='玩家',frameCount=0;
 let decayTimer=0,superFoodTimer=0,showMinimap=true,gameStartTime=0,foodMultLevel=0;
 let spaceHoldTime=0,lastSplitTime=0;
@@ -657,8 +657,9 @@ function processEating(){
     }
   }
   for(const sp of spikes){for(const p of players){if(!p.alive)continue;for(let ci=0;ci<p.cells.length;ci++){const c=p.cells[ci];if(c.mass<1)continue;if(dist(c,sp)<(c.radius+sp.radius)*.7){
-    if(c.mass>30){const half=c.mass/2;c.mass=half;updateRadius(c);const a=rand(0,Math.PI*2);const nc=createCell(c.x+Math.cos(a)*c.radius*2,c.y+Math.sin(a)*c.radius*2,half);nc.vx=Math.cos(a)*10;nc.vy=Math.sin(a)*10;nc.lastSplit=0;if(p.cells.length<CFG.MAX_CELLS*2)p.cells.push(nc);spawnParticles(sp.x,sp.y,'#2ecc71',12,5,4)}
-    else{const a=Math.atan2(c.y-sp.y,c.x-sp.x);c.vx+=Math.cos(a)*8*(p.buffData.spikeDmgMult||1);c.vy+=Math.sin(a)*8*(p.buffData.spikeDmgMult||1);c.mass=Math.max(2,c.mass-3*(p.buffData.spikeDmgMult||1));updateRadius(c)}sfxSplit()
+    c.mass+=sp.mass;updateRadius(c);spawnParticles(sp.x,sp.y,'#2ecc71',20,8,5);sfxSplit();
+    const maxCells=CFG.MAX_CELLS+(p.buffData.maxCellBonus||0);
+    while(p.cells.length<maxCells){const big=getMaxCell(p);if(!big||big.mass<CFG.MIN_SPLIT_MASS*2)break;const half=big.mass/2;big.mass=half;updateRadius(big);const a=rand(0,Math.PI*2);const nc=createCell(big.x+Math.cos(a)*big.radius*1.5,big.y+Math.sin(a)*big.radius*1.5,half);nc.vx=Math.cos(a)*12;nc.vy=Math.sin(a)*12;nc.lastSplit=0;p.cells.push(nc)}
   }}}}
 }
 
@@ -719,12 +720,12 @@ function update(){
   }
 
   // ============ MAP FEATURES ============
-  // spawn black holes (max 3, every 18s)
-  if(blackHoles.length<3&&Date.now()-bhTimer>18000){
-    bhTimer=Date.now();
-    blackHoles.push({x:rand(150,CFG.MAP-150),y:rand(150,CFG.MAP-150),radius:rand(80,120),life:12000,pulse:0,created:Date.now()});
+  // spawn 秘境 portals (max 2, every 25s)
+  if(secretRealms.length<2&&Date.now()-srTimer>25000){
+    srTimer=Date.now();
+    secretRealms.push({x:rand(200,CFG.MAP-200),y:rand(200,CFG.MAP-200),radius:60,pulse:0,used:false});
   }
-  for(let i=blackHoles.length-1;i>=0;i--){const bh=blackHoles[i];bh.pulse+=.03;if(Date.now()-bh.created>bh.life)blackHoles.splice(i,1)}
+  for(let i=secretRealms.length-1;i>=0;i--){const sr=secretRealms[i];sr.pulse+=.04;if(sr.used)secretRealms.splice(i,1)}
   // spawn wormhole pairs (max 2 pairs, every 22s)
   if(wormholes.length<4&&Date.now()-whTimer>22000){
     whTimer=Date.now();
@@ -734,20 +735,34 @@ function update(){
     // despawn oldest pair if too many
     if(wormholes.length>4){wormholes.splice(0,2)}
   }
-  // black hole gravity + destruction
-  for(const bh of blackHoles){
-    for(const p of players){if(!p.alive)continue;
-      for(let ci=p.cells.length-1;ci>=0;ci--){const c=p.cells[ci];if(c.mass<1)continue;
-        const dx=bh.x-c.x,dy=bh.y-c.y,d=Math.hypot(dx,dy);
-        if(d<bh.radius&&d>5){const pull=(1-d/bh.radius)*2.5;c.vx+=dx/d*pull;c.vy+=dy/d*pull}
-        if(d<bh.radius*0.12){
-          spawnParticles(c.x,c.y,'#8b0000',20,8,5);spawnParticles(c.x,c.y,'#ff4500',12,4,3);
-          sfxSplit();c.mass=0;p.cells=p.cells.filter(cell=>cell.mass>1);
-          if(p===player&&!p.cells.length){gameOver(p);return}
-          if(p!==player&&p.isBot&&!p.cells.length){p.cells=[createCell(rand(200,CFG.MAP-200),rand(200,CFG.MAP-200),rand(15,30))];p.kills=0;announce(`${p.name} 被黑洞吞噬了！`,'#ff6b6b')}
-          break;
-        }
-      }
+  // 秘境: player entry
+  if(!inRealm&&player&&player.alive){for(const sr of secretRealms){if(sr.used)continue;
+    for(const c of player.cells){if(c.mass<1)continue;if(dist(c,sr)<sr.radius){sr.used=true;
+      const cx=player.cells.reduce((s,cl)=>s+cl.x,0)/player.cells.length,cy=player.cells.reduce((s,cl)=>s+cl.y,0)/player.cells.length;
+      realmReturn={x:cx,y:cy};realmTreasures=[];const rcx=CFG.MAP*2,rcy=CFG.MAP/2;
+      for(let i=0;i<5;i++){const ang=rand(0,Math.PI*2),d=rand(40,160);realmTreasures.push({x:rcx+Math.cos(ang)*d,y:rcy+Math.sin(ang)*d,radius:14,type:['mass','speed','range'][randI(0,2)],taken:false})}
+      spawnParticles(sr.x,sr.y,'#ffd700',40,12,8);sfxEat();announce('✨ 进入秘境！收集宝藏获取加成！','#ffd700');
+      inRealm=true;realmTimer=Date.now();break
+    }}
+  }}
+  // realm logic: collect treasures
+  if(inRealm&&player&&player.alive){
+    const rcx=CFG.MAP*2, rcy=CFG.MAP/2;
+    for(const c of player.cells){
+      if(c.x<rcx-200||c.x>rcx+200||c.y<rcy-200||c.y>rcy+200){c.x+=rcx-c.x>0?3:-3;c.y+=rcy-c.y>0?3:-3}
+    }
+    for(const tr of realmTreasures){if(tr.taken)continue;
+      for(const c of player.cells){if(c.mass<1)continue;if(dist(c,tr)<c.radius+tr.radius){tr.taken=true;spawnParticles(tr.x,tr.y,'#ffd700',15,6,4);
+        if(tr.type==='mass'){const add=rand(20,50);for(const cl of player.cells){cl.mass+=add/player.cells.length;updateRadius(cl)};announce(`💪 力量宝藏 +${add} 质量！`,'#ffd700')}
+        else if(tr.type==='speed'){player.buffData.speedMult*=1.15;announce('💨 疾风宝藏 +15% 移速！','#4fc3f7')}
+        else if(tr.type==='range'){player.buffData.eatRangeMult*=1.2;announce('👁️ 视野宝藏 +20% 吞噬范围！','#a29bfe')}
+        break;
+      }}
+    }
+    // auto return when all taken or 12s timeout
+    if(Date.now()-realmTimer>12000||realmTreasures.every(t=>t.taken)){
+      for(const c of player.cells){c.x=realmReturn.x+rand(-30,30);c.y=realmReturn.y+rand(-30,30)}
+      inRealm=false;announce('🚀 秘境探险结束，已传送回原地图！','#ffd700');spawnParticles(realmReturn.x,realmReturn.y,'#ffd700',30,8,6)
     }
   }
   // wormhole teleport (with 1s cooldown per cell)
@@ -866,15 +881,30 @@ function draw(){
   const cx=camera.x+W2/2,cy=camera.y+H2/2;ctx.translate(W2/2,H2/2);ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);
   drawBackground();drawGrid();
   ctx.strokeStyle='rgba(255,50,50,.3)';ctx.lineWidth=4;ctx.strokeRect(0,0,CFG.MAP,CFG.MAP);
-  // black holes
-  for(const bh of blackHoles){
-    const gr=ctx.createRadialGradient(bh.x,bh.y,0,bh.x,bh.y,bh.radius);
-    gr.addColorStop(0,'rgba(10,0,30,.85)');gr.addColorStop(.4,'rgba(30,0,50,.3)');gr.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius,0,Math.PI*2);ctx.fillStyle=gr;ctx.fill();
-    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius*.55,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(180,100,255,${.08+Math.sin(bh.pulse)*.04})`;ctx.lineWidth=2;ctx.setLineDash([5,8]);ctx.stroke();ctx.setLineDash([]);
-    ctx.shadowColor='rgba(100,0,200,.25)';ctx.shadowBlur=25;
-    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius*.1,0,Math.PI*2);ctx.fillStyle='#0a001a';ctx.fill();ctx.shadowBlur=0;
+  // 秘境 portals
+  if(!inRealm){for(const sr of secretRealms){if(sr.used)continue;
+    const r=sr.radius+Math.sin(sr.pulse)*5;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6+sr.pulse,d=r*1.2+Math.sin(sr.pulse*2+i)*15;
+      ctx.beginPath();ctx.arc(sr.x+Math.cos(a)*d,sr.y+Math.sin(a)*d,3+Math.sin(sr.pulse*3+i)*2,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${45+i*15},90%,${60+Math.sin(sr.pulse+i)*20}%,.5)`;ctx.fill()}
+    const gr=ctx.createRadialGradient(sr.x,sr.y,0,sr.x,sr.y,r);
+    gr.addColorStop(0,'rgba(255,215,0,.15)');gr.addColorStop(.5,'rgba(200,150,50,.08)');gr.addColorStop(1,'rgba(100,50,0,0)');
+    ctx.beginPath();ctx.arc(sr.x,sr.y,r,0,Math.PI*2);ctx.fillStyle=gr;ctx.fill();
+    ctx.strokeStyle=`rgba(255,215,0,${.15+Math.sin(sr.pulse)*.1})`;ctx.lineWidth=2;ctx.setLineDash([4,6]);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,215,0,.3)';ctx.font='10px Arial';ctx.textAlign='center';ctx.fillText('秘境',sr.x,sr.y-5)
+  }}
+  // realm area (separate mini-map)
+  if(inRealm){const rcx=CFG.MAP*2,rcy=CFG.MAP/2;
+    ctx.fillStyle='rgba(20,10,40,.85)';ctx.fillRect(rcx-300,rcy-300,600,600);
+    ctx.strokeStyle='rgba(255,215,0,.2)';ctx.lineWidth=2;ctx.strokeRect(rcx-300,rcy-300,600,600);
+    for(const tr of realmTreasures){if(tr.taken)continue;
+      const pr=tr.radius+Math.sin(frameCount*.05)*3;
+      const tg=ctx.createRadialGradient(tr.x-3,tr.y-3,0,tr.x,tr.y,pr);
+      tg.addColorStop(0,'#fffbe6');tg.addColorStop(.3,'#ffd700');tg.addColorStop(1,'#b8860b');
+      ctx.beginPath();ctx.arc(tr.x,tr.y,pr,0,Math.PI*2);ctx.fillStyle=tg;ctx.fill();
+      ctx.shadowColor='#ffd700';ctx.shadowBlur=15;ctx.strokeStyle='rgba(255,215,0,.5)';ctx.lineWidth=2;ctx.stroke();ctx.shadowBlur=0;
+      ctx.fillStyle='#fff';ctx.font='8px Arial';ctx.textAlign='center';ctx.fillText(tr.type==='mass'?'💪':tr.type==='speed'?'💨':'👁️',tr.x,tr.y+2)
+    }
   }
   // wormholes
   for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;
@@ -1202,7 +1232,7 @@ function drawMinimap(){
   }
   for(const s2 of spikes){ctx.fillStyle='#2ecc71';ctx.fillRect(mx+s2.x*scale-1,my+s2.y*scale-1,3,3)}
   for(const sf of superFoods){ctx.beginPath();ctx.arc(mx+sf.x*scale,my+sf.y*scale,3,0,Math.PI*2);ctx.fillStyle='#ffd700';ctx.fill()}
-  for(const bh of blackHoles){ctx.fillStyle='rgba(100,0,200,.4)';ctx.beginPath();ctx.arc(mx+bh.x*scale,my+bh.y*scale,4,0,Math.PI*2);ctx.fill()}
+  for(const sr of secretRealms){if(sr.used)continue;ctx.fillStyle='rgba(255,215,0,.5)';ctx.beginPath();ctx.arc(mx+sr.x*scale,my+sr.y*scale,4,0,Math.PI*2);ctx.fill()}
   for(const wh of wormholes){ctx.fillStyle='rgba(150,100,255,.5)';ctx.beginPath();ctx.arc(mx+wh.x*scale,my+wh.y*scale,2.5,0,Math.PI*2);ctx.fill()}
   ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.strokeRect(mx+camera.x*scale,my+camera.y*scale,W()*scale,H()*scale);
   // legend
@@ -1212,8 +1242,8 @@ function drawMinimap(){
   ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('玩家',lx+10,ly+5);
   ctx.fillStyle='#ff6b6b';ctx.beginPath();ctx.arc(lx+4,ly+13,2.5,0,Math.PI*2);ctx.fill()
   ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('敌人',lx+10,ly+15);
-  ctx.fillStyle='rgba(100,0,200,.4)';ctx.beginPath();ctx.arc(lx+4,ly+23,3,0,Math.PI*2);ctx.fill()
-  ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('黑洞',lx+10,ly+25);
+  ctx.fillStyle='rgba(255,215,0,.5)';ctx.beginPath();ctx.arc(lx+4,ly+23,3,0,Math.PI*2);ctx.fill()
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('秘境',lx+10,ly+25);
   ctx.fillStyle='rgba(150,100,255,.5)';ctx.beginPath();ctx.arc(lx+4,ly+33,2.5,0,Math.PI*2);ctx.fill()
   ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillText('虫洞',lx+10,ly+35);
   ctx.fillStyle='#4ecca3';ctx.font='9px Arial';ctx.textAlign='right';ctx.fillText('小地图',mx+s-4,my+12);
@@ -1274,7 +1304,7 @@ function startGame(name){
   myName=name||'玩家';
   startScreen.style.display='none';deathScreen.style.display='none';
   foods=[];spikes=[];superFoods=[];ejected=[];players=[];particles=[];replayData=[];
-  blackHoles=[];wormholes=[];bhTimer=Date.now();whTimer=Date.now();killStreak=0;shakeIntensity=0;foodMultLevel=0;
+  secretRealms=[];wormholes=[];srTimer=Date.now();whTimer=Date.now();killStreak=0;shakeIntensity=0;foodMultLevel=0;inRealm=false;realmReturn=null;realmTreasures=[];
   player=null;camera={x:0,y:0};frameCount=0;decayTimer=0;superFoodTimer=0;
   isReplay=false;isSpectating=false;escHint.style.display='block';
   if(replayId)cancelAnimationFrame(replayId);if(spectateId)cancelAnimationFrame(spectateId);
