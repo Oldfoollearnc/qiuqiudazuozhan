@@ -849,11 +849,12 @@ function update(){
 function draw(){
   const W2=W(),H2=H();
   ctx.fillStyle='#0a0a0a';ctx.fillRect(0,0,W2,H2);
+  ctx.save();
   if(shakeIntensity>0){
     const sx=(Math.random()-.5)*shakeIntensity,sy=(Math.random()-.5)*shakeIntensity;
     ctx.translate(sx,sy);shakeIntensity*=.85;if(shakeIntensity<.8)shakeIntensity=0;
   }
-  ctx.save();const cx=camera.x+W2/2,cy=camera.y+H2/2;ctx.translate(W2/2,H2/2);ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);
+  const cx=camera.x+W2/2,cy=camera.y+H2/2;ctx.translate(W2/2,H2/2);ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);
   drawBackground();drawGrid();
   ctx.strokeStyle='rgba(255,50,50,.3)';ctx.lineWidth=4;ctx.strokeRect(0,0,CFG.MAP,CFG.MAP);
   // black holes
