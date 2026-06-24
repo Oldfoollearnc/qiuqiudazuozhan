@@ -453,6 +453,7 @@ function announce(text,color='#fff'){
 // ============ GAME STATE ============
 let camera={x:0,y:0},mouse={x:W()/2,y:H()/2},zoom=1;
 let foods=[],spikes=[],superFoods=[],ejected=[],players=[],gameRunning=false,animId=null;
+let blackHoles=[],wormholes=[],bhTimer=0,whTimer=0;
 let player=null,keys={},myName='玩家',frameCount=0;
 let decayTimer=0,superFoodTimer=0,showMinimap=true,gameStartTime=0;
 let spaceHoldTime=0,lastSplitTime=0;
@@ -662,6 +663,48 @@ function update(){
     for(const c of player.cells){c.mass+=regenMass;updateRadius(c)}
   }
 
+  // ============ MAP FEATURES ============
+  // spawn black holes (max 3, every 18s)
+  if(blackHoles.length<3&&Date.now()-bhTimer>18000){
+    bhTimer=Date.now();
+    blackHoles.push({x:rand(150,CFG.MAP-150),y:rand(150,CFG.MAP-150),radius:rand(80,120),life:12000,pulse:0,created:Date.now()});
+  }
+  for(let i=blackHoles.length-1;i>=0;i--){const bh=blackHoles[i];bh.pulse+=.03;if(Date.now()-bh.created>bh.life)blackHoles.splice(i,1)}
+  // spawn wormhole pairs (max 2 pairs, every 22s)
+  if(wormholes.length<4&&Date.now()-whTimer>22000){
+    whTimer=Date.now();
+    const w1={x:rand(150,CFG.MAP-150),y:rand(150,CFG.MAP-150),radius:28,pulse:0};
+    const w2={x:rand(150,CFG.MAP-150),y:rand(150,CFG.MAP-150),radius:28,pulse:0};
+    w1.pair=w2;w2.pair=w1;wormholes.push(w1,w2);
+    // despawn oldest pair if too many
+    if(wormholes.length>4){wormholes.splice(0,2)}
+  }
+  // black hole gravity + destruction
+  for(const bh of blackHoles){
+    for(const p of players){if(!p.alive)continue;
+      for(let ci=p.cells.length-1;ci>=0;ci--){const c=p.cells[ci];if(c.mass<1)continue;
+        const dx=bh.x-c.x,dy=bh.y-c.y,d=Math.hypot(dx,dy);
+        if(d<bh.radius&&d>5){const pull=(1-d/bh.radius)*2.5;c.vx+=dx/d*pull;c.vy+=dy/d*pull}
+        if(d<bh.radius*0.12){
+          spawnParticles(c.x,c.y,'#8b0000',20,8,5);spawnParticles(c.x,c.y,'#ff4500',12,4,3);
+          sfxSplit();c.mass=0;p.cells=p.cells.filter(cell=>cell.mass>1);
+          if(p===player&&!p.cells.length){gameOver(p);return}
+          if(p!==player&&p.isBot&&!p.cells.length){p.cells=[createCell(rand(200,CFG.MAP-200),rand(200,CFG.MAP-200),rand(15,30))];p.kills=0;announce(`${p.name} 被黑洞吞噬了！`,'#ff6b6b')}
+          break;
+        }
+      }
+    }
+  }
+  // wormhole teleport
+  for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;w1.pulse+=.05;w2.pulse+=.05;
+    for(const p of players){if(!p.alive)continue;
+      for(const c of p.cells){if(c.mass<1)continue;
+        if(dist(c,w1)<w1.radius+c.radius){c.x=w2.x+rand(-5,5);c.y=w2.y+rand(-5,5);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
+        if(dist(c,w2)<w2.radius+c.radius){c.x=w1.x+rand(-5,5);c.y=w1.y+rand(-5,5);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);if(p===player)playTone(400,.08,'sine',.06)}
+      }
+    }
+  }
+
   for(const p of players){if(p.isBot&&p.alive){updateBot(p);movePlayer(p);processMerge(p)}}
   // record trails for skin effects
   for(const p of players){if(p.alive&&p.skin!=='none'&&p.cells.length){const mc=getMaxCell(p);
@@ -762,6 +805,28 @@ function draw(){
   ctx.save();const cx=camera.x+W2/2,cy=camera.y+H2/2;ctx.translate(W2/2,H2/2);ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);
   drawBackground();drawGrid();
   ctx.strokeStyle='rgba(255,50,50,.3)';ctx.lineWidth=4;ctx.strokeRect(0,0,CFG.MAP,CFG.MAP);
+  // black holes
+  for(const bh of blackHoles){
+    const gr=ctx.createRadialGradient(bh.x,bh.y,0,bh.x,bh.y,bh.radius);
+    gr.addColorStop(0,'rgba(10,0,30,.85)');gr.addColorStop(.4,'rgba(30,0,50,.3)');gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius,0,Math.PI*2);ctx.fillStyle=gr;ctx.fill();
+    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius*.55,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(180,100,255,${.08+Math.sin(bh.pulse)*.04})`;ctx.lineWidth=2;ctx.setLineDash([5,8]);ctx.stroke();ctx.setLineDash([]);
+    ctx.shadowColor='rgba(100,0,200,.25)';ctx.shadowBlur=25;
+    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.radius*.1,0,Math.PI*2);ctx.fillStyle='#0a001a';ctx.fill();ctx.shadowBlur=0;
+  }
+  // wormholes
+  for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;
+    ctx.strokeStyle='rgba(120,80,200,.12)';ctx.lineWidth=1;ctx.setLineDash([4,8]);
+    ctx.beginPath();ctx.moveTo(w1.x,w1.y);ctx.lineTo(w2.x,w2.y);ctx.stroke();ctx.setLineDash([]);
+    for(const w of [w1,w2]){
+      const rp=w.radius+Math.sin(w.pulse)*3;
+      const wg=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,rp);
+      wg.addColorStop(0,'rgba(200,150,255,.7)');wg.addColorStop(.5,'rgba(100,50,200,.35)');wg.addColorStop(1,'rgba(50,0,100,0)');
+      ctx.beginPath();ctx.arc(w.x,w.y,rp,0,Math.PI*2);ctx.fillStyle=wg;ctx.fill();
+      ctx.strokeStyle='rgba(180,130,255,.25)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(w.x,w.y,rp*1.2,0,Math.PI*2);ctx.stroke();
+    }
+  }
   for(const s of spikes)drawSpike(s);
   for(const f of foods){ctx.beginPath();ctx.arc(f.x,f.y,f.radius,0,Math.PI*2);ctx.fillStyle=f.color;ctx.fill();ctx.strokeStyle='rgba(0,0,0,.2)';ctx.lineWidth=1;ctx.stroke()}
   for(const sf of superFoods){const pr=sf.radius+Math.sin(sf.pulse)*3;ctx.beginPath();ctx.arc(sf.x,sf.y,pr,0,Math.PI*2);const g=ctx.createRadialGradient(sf.x-4,sf.y-4,0,sf.x,sf.y,pr);g.addColorStop(0,'#fffbe6');g.addColorStop(.3,'#ffd700');g.addColorStop(1,'#b8860b');ctx.fillStyle=g;ctx.fill();ctx.shadowColor='#ffd700';ctx.shadowBlur=20;ctx.strokeStyle='rgba(255,215,0,.6)';ctx.lineWidth=2;ctx.stroke();ctx.shadowBlur=0}
@@ -1041,6 +1106,8 @@ function drawMinimap(){
   }
   for(const s2 of spikes){ctx.fillStyle='#2ecc71';ctx.fillRect(mx+s2.x*scale-1,my+s2.y*scale-1,3,3)}
   for(const sf of superFoods){ctx.beginPath();ctx.arc(mx+sf.x*scale,my+sf.y*scale,3,0,Math.PI*2);ctx.fillStyle='#ffd700';ctx.fill()}
+  for(const bh of blackHoles){ctx.fillStyle='rgba(100,0,200,.4)';ctx.beginPath();ctx.arc(mx+bh.x*scale,my+bh.y*scale,4,0,Math.PI*2);ctx.fill()}
+  for(const wh of wormholes){ctx.fillStyle='rgba(150,100,255,.5)';ctx.beginPath();ctx.arc(mx+wh.x*scale,my+wh.y*scale,2.5,0,Math.PI*2);ctx.fill()}
   ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.strokeRect(mx+camera.x*scale,my+camera.y*scale,W()*scale,H()*scale);
   ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='9px Arial';ctx.fillText('小地图',mx+4,my+12);
 }
@@ -1057,7 +1124,10 @@ function skinForeColor(skin){
 function updateLeaderboard(){
   const sorted=players.filter(p=>p.alive&&p.cells.length).sort((a,b)=>totalMass(b)-totalMass(a));
   let html='<div class="title">🏆 排行榜</div>';
-  sorted.slice(0,10).forEach((p,i)=>{html+=`<div class="${p===player?'entry me':'entry'}">${i+1}. ${p.name} — ${Math.floor(totalMass(p))}</div>`});
+  sorted.slice(0,10).forEach((p,i)=>{
+    const bc=p.ownedBuffs?p.ownedBuffs.length:0;
+    html+=`<div class="${p===player?'entry me':'entry'}">${i+1}. ${p.name} — ${Math.floor(totalMass(p))}${bc?` <span style="font-size:9px;color:rgba(255,215,0,.5)">✨${bc}</span>`:''}</div>`
+  });
   leaderboardEl.innerHTML=html;
 }
 function updateLevelDisplay(){
@@ -1096,6 +1166,7 @@ function startGame(name){
   myName=name||'玩家';
   startScreen.style.display='none';deathScreen.style.display='none';
   foods=[];spikes=[];superFoods=[];ejected=[];players=[];particles=[];replayData=[];
+  blackHoles=[];wormholes=[];bhTimer=Date.now();whTimer=Date.now();
   player=null;camera={x:0,y:0};frameCount=0;decayTimer=0;superFoodTimer=0;
   isReplay=false;isSpectating=false;escHint.style.display='block';
   if(replayId)cancelAnimationFrame(replayId);if(spectateId)cancelAnimationFrame(spectateId);
@@ -1168,16 +1239,14 @@ function selectBuff(idx,pool){
   // visual burst
   const mc=getMaxCell(player);
   if(mc){for(let i=0;i<30;i++){const a=rand(0,Math.PI*2);particles.push({x:mc.x,y:mc.y,vx:Math.cos(a)*rand(2,8),vy:Math.sin(a)*rand(2,8),radius:rand(2,5),color:`hsl(${randI(40,60)},100%,${randI(60,80)}%)`,life:1,decay:.015})}}
-  // bots also get buffs to keep competition fierce
+  // ALL alive bots get 1 random buff each round
   const bots=players.filter(p=>p!==player&&p.isBot&&p.alive);
-  if(bots.length){
-    const shuffled=bots.sort(()=>Math.random()-.5);
-    const count=Math.min(2,bots.length);
-    for(let i=0;i<count;i++){
-      const rb=BUFF_POOL[randI(0,BUFF_POOL.length-1)];
-      rb.apply(shuffled[i].buffData);
-      shuffled[i].ownedBuffs.push(rb.id);
-    }
+  for(const bot of bots){
+    const rb=BUFF_POOL[randI(0,BUFF_POOL.length-1)];
+    rb.apply(bot.buffData);
+    bot.ownedBuffs.push(rb.id);
+    if(bot.ownedBuffs.length===5)announce(`🔥 ${bot.name} 获得 5 层强化！`,'#ff6b6b');
+    if(bot.ownedBuffs.length===10)announce(`💀 ${bot.name} 已无人能挡！`,'#ff4444');
   }
   // interval shortens each pick (15s → min 8s)
   buffPickCount++;
