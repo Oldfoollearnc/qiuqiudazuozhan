@@ -74,8 +74,9 @@ canvas{display:block;cursor:none}
 #settingsPanel.open{max-height:220px;margin-top:4px}
 #settingsPanel .row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;margin:0}
 #settingsPanel .row label{color:rgba(255,255,255,.4);font-size:12px}
-#settingsPanel .row select{background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:3px 8px;font-size:11px;outline:none;font-family:inherit;transition:all .2s}
-#settingsPanel .row select:focus{border-color:rgba(78,204,163,.3)}
+#settingsPanel .row select{background:rgba(0,0,0,.4);color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:3px 8px;font-size:11px;outline:none;font-family:inherit;transition:all .2s;cursor:pointer}
+#settingsPanel .row select option{background:#1a1a2e;color:#fff}
+#settingsPanel .row select:focus{border-color:rgba(78,204,163,.5)}
 .toggle-switch{position:relative;width:36px;height:20px;cursor:pointer}
 .toggle-switch input{opacity:0;width:0;height:0}
 .toggle-slider{position:absolute;top:0;left:0;right:0;bottom:0;background:#444;border-radius:10px;transition:.3s}
@@ -95,6 +96,25 @@ canvas{display:block;cursor:none}
 #deathScreen button.btn-sec{background:rgba(255,255,255,.1);color:#ccc}
 #deathScreen button.btn-sec:hover{background:rgba(255,255,255,.2)}
 #spectateHint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.4);font-size:12px;z-index:11;pointer-events:none}
+#buffPanel{position:fixed;top:0;left:0;width:100%;height:100%;display:none;z-index:90;align-items:center;justify-content:center}
+#buffPanel.open{display:flex}
+.buff-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+.buff-panel{position:relative;z-index:1;background:rgba(20,20,40,.85);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:28px 28px 20px;max-width:560px;width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.7);text-align:center}
+.buff-title{font-size:26px;font-weight:900;color:#ffd700;margin-bottom:2px;text-shadow:0 0 20px rgba(255,215,0,.2)}
+.buff-subtitle{color:rgba(255,255,255,.3);font-size:12px;margin-bottom:16px;letter-spacing:2px}
+.buff-cards{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.buff-card{pointer-events:auto;flex:1;min-width:140px;max-width:170px;padding:16px 10px;border-radius:16px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);cursor:pointer;transition:all .3s;text-align:center}
+.buff-card:hover{transform:translateY(-8px);border-color:rgba(78,204,163,.4);box-shadow:0 8px 30px rgba(78,204,163,.15),inset 0 0 30px rgba(78,204,163,.03);background:rgba(255,255,255,.06)}
+.buff-card.tier2{border-color:rgba(255,215,0,.25)}
+.buff-card.tier2:hover{border-color:rgba(255,215,0,.5);box-shadow:0 8px 30px rgba(255,215,0,.15),inset 0 0 30px rgba(255,215,0,.03)}
+.buff-card .icon{font-size:32px;display:block;margin-bottom:6px}
+.buff-card .name{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px}
+.buff-card .desc{font-size:11px;color:rgba(255,255,255,.5);line-height:1.4}
+.buff-card .rarity{font-size:9px;margin-top:6px;display:inline-block;padding:1px 8px;border-radius:8px;letter-spacing:1px}
+.buff-card .rarity.t1{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3)}
+.buff-card .rarity.t2{background:rgba(255,215,0,.1);color:#ffd700}
+.buff-card:hover .desc{color:rgba(255,255,255,.7)}
+.buff-time{color:rgba(255,255,255,.2);font-size:10px;margin-top:12px;letter-spacing:1px}
 </style>
 </head>
 <body>
@@ -139,7 +159,7 @@ canvas{display:block;cursor:none}
     <div class="row"><label>音效</label><label class="toggle-switch"><input id="sfxToggle" type="checkbox" checked><span class="toggle-slider"></span></label></div>
     <div class="row"><label>小地图</label><label class="toggle-switch"><input id="mapToggle" type="checkbox" checked><span class="toggle-slider"></span></label></div>
     <div class="row"><label>AI 数量</label><select id="aiCount"><option value="8">少 (8)</option><option value="14" selected>中 (14)</option><option value="22">多 (22)</option></select></div>
-    <div class="row"><label>游戏模式</label><select id="gameMode"><option value="classic">经典模式</option><option value="chaos">大乱斗</option><option value="endless">无尽模式</option></select></div>
+    <div class="row"><label>游戏模式</label><select id="gameMode"><option value="classic">经典模式</option><option value="chaos">大乱斗</option><option value="endless">无尽模式</option><option value="shovel">金铲铲模式</option></select></div>
   </div>
   </div>
 </div>
@@ -157,6 +177,15 @@ canvas{display:block;cursor:none}
     <button id="restartBtn">再来一局</button>
     <button class="btn-sec" id="replayBtn">📺 回放</button>
     <button class="btn-sec" id="spectateBtn">👁 观战</button>
+  </div>
+</div>
+<div id="buffPanel">
+  <div class="buff-overlay"></div>
+  <div class="buff-panel">
+    <div class="buff-title">✨ 选择强化符文</div>
+    <div class="buff-subtitle">获得强大的增益效果，可叠加</div>
+    <div class="buff-cards" id="buffCards"></div>
+    <div class="buff-time" id="buffTime"></div>
   </div>
 </div>
 <script>
@@ -276,7 +305,8 @@ function getRank(level){let r=0;for(let i=0;i<RANK_THRESHOLDS.length;i++)if(leve
 function getLevel(exp){let l=1;for(let i=0;i<LEVELS.length;i++){if(exp>=LEVELS[i])l=i+2;else break}return l}
 function expForNext(level){if(level-1<LEVELS.length)return LEVELS[level-1];return(level-LEVELS.length)*30+LEVELS[LEVELS.length-1]}
 function addExp(amount){
-  playerData.exp+=amount;const nLv=getLevel(playerData.exp);
+  const mult=player&&player.buffData?player.buffData.expMult||1:1;
+  playerData.exp+=Math.floor(amount*mult);const nLv=getLevel(playerData.exp);
   if(nLv>playerData.level){playerData.level=nLv;const c=UNLOCK_COLORS[nLv];if(c&&!playerData.unlocks.includes(c))playerData.unlocks.push(c);sfxAchieve()}
   saveData();
 }
@@ -293,6 +323,28 @@ function checkAchievement(key,cond){
   sfxAchieve();return true;
 }
 function saveData(){localStorage.setItem('qiuqiu_data',JSON.stringify(playerData))}
+
+// ============ BUFF SYSTEM (金铲铲模式) ============
+const BUFF_POOL=[
+  {id:'speed',name:'疾跑',desc:'移速 +8%',icon:'💨',tier:1,apply:bd=>{bd.speedMult*=1.08}},
+  {id:'eatRange',name:'重击',desc:'吞噬范围 +10%',icon:'👊',tier:1,apply:bd=>{bd.eatRangeMult*=1.10}},
+  {id:'sprintDur',name:'冲刺',desc:'冲刺时间 +20%',icon:'⚡',tier:1,apply:bd=>{bd.sprintDurMult*=1.20}},
+  {id:'foodGain',name:'大胃王',desc:'食物增益 +20%',icon:'🍔',tier:1,apply:bd=>{bd.foodGainMult*=1.20}},
+  {id:'bonusMass',name:'金质奖章',desc:'初始质量 +5',icon:'🏅',tier:1,apply:bd=>{bd.bonusMass+=5}},
+  {id:'spikeResist',name:'铁布衫',desc:'尖刺伤害 -25%',icon:'⛰️',tier:1,apply:bd=>{bd.spikeDmgMult*=0.75}},
+  {id:'ejectCost',name:'节能',desc:'吐球消耗 -3',icon:'💎',tier:1,apply:bd=>{bd.ejectCostReduction+=3}},
+  {id:'expBoost',name:'经验达人',desc:'经验获取 +30%',icon:'📚',tier:1,apply:bd=>{bd.expMult*=1.30}},
+  {id:'splitCd',name:'分裂',desc:'分裂冷却 -15%',icon:'🔪',tier:2,apply:bd=>{bd.splitCdMult*=0.85}},
+  {id:'sprintCd',name:'冲刺大师',desc:'冲刺冷却 -15%',icon:'💨',tier:2,apply:bd=>{bd.sprintCdMult*=0.85}},
+  {id:'superFood',name:'聚宝盆',desc:'超级食物增益 +40%',icon:'🌟',tier:2,apply:bd=>{bd.superFoodGainMult*=1.40}},
+  {id:'decayResist',name:'不灭之体',desc:'衰减减少 25%',icon:'🛡️',tier:2,apply:bd=>{bd.decayMult*=0.75}},
+  {id:'maxCell',name:'细胞分裂',desc:'最大细胞数 +1',icon:'🧬',tier:2,apply:bd=>{bd.maxCellBonus+=1}},
+  {id:'mergeSpeed',name:'坚韧',desc:'合并时间 -15%',icon:'⏳',tier:2,apply:bd=>{bd.mergeTimeMult*=0.85}},
+  {id:'regen',name:'生命源泉',desc:'每秒恢复 +0.5 质量',icon:'💚',tier:2,apply:bd=>{bd.regenRate+=0.5}},
+  {id:'sprintCost',name:'节能冲刺',desc:'冲刺消耗 -20%',icon:'🏃',tier:2,apply:bd=>{bd.sprintCostMult*=0.80}},
+];
+function createDefaultBuffData(){return{speedMult:1,eatRangeMult:1,splitCdMult:1,sprintDurMult:1,sprintCdMult:1,foodGainMult:1,superFoodGainMult:1,bonusMass:0,decayMult:1,maxCellBonus:0,spikeDmgMult:1,mergeTimeMult:1,ejectCostReduction:0,regenRate:0,expMult:1,sprintCostMult:1,buffs:[]}}
+let buffTimer=0,buffCountdownEl=null;
 
 // ============ REPLAY ============
 let replayData=[],isReplay=false,replayFrame=0,replayId=null;
@@ -386,7 +438,7 @@ function createPlayer(id,name,isBot){
     personality:isBot?randI(0,2):-1,
     kills:0,foodEaten:0,splitCount:0,maxMass:10,
     skinState:{particles:[],wingAngle:0,timer:0},
-    trail:[]
+    trail:[],buffData:createDefaultBuffData(),ownedBuffs:[]
   };
 }
 function randomColor(){const c=['#ff6b6b','#ffd93d','#6bcbff','#ff8fe8','#ff9f43','#a29bfe','#fd79a8','#55efc4','#fab1a0','#81ecec','#e17055','#00cec9'];return c[randI(0,c.length-1)]}
@@ -408,7 +460,7 @@ function movePlayer(p){
   let tx,ty;
   if(p.isBot){tx=p.targetX;ty=p.targetY}else{tx=camera.x+mouse.x;ty=camera.y+mouse.y}
   const totalM=cs.reduce((s,c)=>s+c.mass,0);
-  let sp=speedFactor(totalM);if(p.sprintTimer>0)sp*=CFG.SPRINT_MULTIPLIER;sp=Math.max(.5,sp);
+  let sp=speedFactor(totalM)*(p.buffData.speedMult||1);if(p.sprintTimer>0)sp*=CFG.SPRINT_MULTIPLIER;sp=Math.max(.5,sp);
   for(const c of cs){
     const dx=tx-c.x,dy=ty-c.y,d=Math.hypot(dx,dy);
     if(d>c.radius*.6){const moveSp=Math.max(.3,Math.min(CFG.BASE_SPEED,sp*(1-c.radius/800)));const a=Math.atan2(dy,dx);c.vx+=Math.cos(a)*moveSp*.25;c.vy+=Math.sin(a)*moveSp*.25}
@@ -421,15 +473,15 @@ function speedFactor(mass){if(mass<20)return 1;return Math.max(.4,1.2-Math.sqrt(
 
 // ============ SPRINT ============
 function doSprint(p){
-  if(p.sprintCooldown>0||p.sprintTimer>0)return;const tm=totalMass(p);if(tm<15)return;const cost=tm*CFG.SPRINT_COST;
+  if(p.sprintCooldown>0||p.sprintTimer>0)return;const tm=totalMass(p);if(tm<15)return;const cost=tm*CFG.SPRINT_COST*(p.buffData.sprintCostMult||1);
   for(const c of p.cells){const r=c.mass/tm;c.mass-=cost*r;if(c.mass<2)c.mass=2;updateRadius(c)}
-  p.sprintTimer=CFG.SPRINT_DURATION;p.sprintCooldown=CFG.SPRINT_COOLDOWN;sfxSprint();
+  p.sprintTimer=CFG.SPRINT_DURATION*(p.buffData.sprintDurMult||1);p.sprintCooldown=CFG.SPRINT_COOLDOWN*(p.buffData.sprintCdMult||1);sfxSprint();
 }
 
 // ============ SPLIT ============
 function doSplit(p){
   if(!p.alive)return;
-  const cs=p.cells.filter(c=>c.mass>=CFG.MIN_SPLIT_MASS);if(!cs.length||p.cells.length>=CFG.MAX_CELLS)return;
+  const cs=p.cells.filter(c=>c.mass>=CFG.MIN_SPLIT_MASS);const maxCells=CFG.MAX_CELLS+(p.buffData.maxCellBonus||0);if(!cs.length||p.cells.length>=maxCells)return;
   const c=getMaxCell(p);if(c.mass<CFG.MIN_SPLIT_MASS)return;
   const half=c.mass/2;c.mass=half;updateRadius(c);
   let tx,ty;if(p.isBot){tx=p.targetX;ty=p.targetY}else{tx=camera.x+mouse.x;ty=camera.y+mouse.y}
@@ -442,8 +494,8 @@ function doSplit(p){
 
 // ============ EJECT ============
 function doEject(p){
-  if(!p.alive)return;const c=getMaxCell(p);if(!c||c.mass<CFG.EJECT_COST+2)return;
-  c.mass-=CFG.EJECT_COST;updateRadius(c);
+  if(!p.alive)return;const c=getMaxCell(p);const ejectCost=Math.max(1,CFG.EJECT_COST-(p.buffData.ejectCostReduction||0));if(!c||c.mass<ejectCost+2)return;
+  c.mass-=ejectCost;updateRadius(c);
   let tx,ty;if(p.isBot){tx=p.targetX;ty=p.targetY}else{tx=camera.x+mouse.x;ty=camera.y+mouse.y}
   const a=Math.atan2(ty-c.y,tx-c.x);
   const ex=c.x+Math.cos(a)*c.radius,ey=c.y+Math.sin(a)*c.radius;
@@ -458,9 +510,10 @@ function doEject(p){
 // ============ MERGE ============
 function processMerge(p){
   if(p.cells.length<2)return;const now=Date.now();
+  const mergeTime=CFG.MERGE_TIME*(p.buffData.mergeTimeMult||1);
   for(let i=0;i<p.cells.length;i++)for(let j=i+1;j<p.cells.length;j++){
     const a=p.cells[i],b=p.cells[j];if(a.mass<1||b.mass<1)continue;
-    if(now-a.lastSplit<CFG.MERGE_TIME||now-b.lastSplit<CFG.MERGE_TIME)continue;
+    if(now-a.lastSplit<mergeTime||now-b.lastSplit<mergeTime)continue;
     if(dist(a,b)<(a.radius+b.radius)*.5){const tm=a.mass+b.mass;a.x=(a.x*a.mass+b.x*b.mass)/tm;a.y=(a.y*a.mass+b.y*b.mass)/tm;a.mass=tm;updateRadius(a);b.mass=0;p.cells=p.cells.filter(c=>c.mass>1);return}
   }
 }
@@ -490,10 +543,10 @@ function updateBot(p){
 // ============ COLLISION ============
 function processEating(){
   for(let fi=foods.length-1;fi>=0;fi--){const f=foods[fi];let e=false;
-    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;updateRadius(c);if(dist(c,f)<c.radius){c.mass+=f.mass*.4;p.foodEaten++;spawnParticles(f.x,f.y,f.color,4,3,3);if(p===player)sfxEat();foods.splice(fi,1);e=true;break}}if(e)break}
+    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;updateRadius(c);const eatRange=c.radius*(p.buffData.eatRangeMult||1);if(dist(c,f)<eatRange){c.mass+=f.mass*.4*(p.buffData.foodGainMult||1);p.foodEaten++;spawnParticles(f.x,f.y,f.color,4,3,3);if(p===player)sfxEat();foods.splice(fi,1);e=true;break}}if(e)break}
   }
   for(let si=superFoods.length-1;si>=0;si--){const sf=superFoods[si];let e=false;
-    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,sf)<c.radius){c.mass+=sf.mass*.5;spawnParticles(sf.x,sf.y,'#ffd700',20,6,5);sfxEat();superFoods.splice(si,1);e=true;break}}if(e)break}
+    for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,sf)<c.radius){c.mass+=sf.mass*.5*(p.buffData.superFoodGainMult||1);spawnParticles(sf.x,sf.y,'#ffd700',20,6,5);sfxEat();superFoods.splice(si,1);e=true;break}}if(e)break}
   }
   for(let ei=ejected.length-1;ei>=0;ei--){const e=ejected[ei];if(!e.alive)continue;e.x+=e.vx;e.y+=e.vy;e.vx*=.95;e.vy*=.95;e.life-=.016;if(e.life<=0){e.alive=false;ejected.splice(ei,1);continue}let eaten=false;
     for(const p of players){if(!p.alive||p.id===e.owner)continue;for(const c of p.cells){if(c.mass<1)continue;if(dist(c,e)<c.radius){c.mass+=e.mass*.4;ejected.splice(ei,1);eaten=true;break}}if(eaten)break}
@@ -513,12 +566,12 @@ function processEating(){
   }
   for(const sp of spikes){for(const p of players){if(!p.alive)continue;for(let ci=0;ci<p.cells.length;ci++){const c=p.cells[ci];if(c.mass<1)continue;if(dist(c,sp)<(c.radius+sp.radius)*.7){
     if(c.mass>30){const half=c.mass/2;c.mass=half;updateRadius(c);const a=rand(0,Math.PI*2);const nc=createCell(c.x+Math.cos(a)*c.radius*2,c.y+Math.sin(a)*c.radius*2,half);nc.vx=Math.cos(a)*10;nc.vy=Math.sin(a)*10;nc.lastSplit=0;if(p.cells.length<CFG.MAX_CELLS*2)p.cells.push(nc);spawnParticles(sp.x,sp.y,'#2ecc71',12,5,4)}
-    else{const a=Math.atan2(c.y-sp.y,c.x-sp.x);c.vx+=Math.cos(a)*8;c.vy+=Math.sin(a)*8;c.mass=Math.max(2,c.mass-3);updateRadius(c)}sfxSplit()
+    else{const a=Math.atan2(c.y-sp.y,c.x-sp.x);c.vx+=Math.cos(a)*8*(p.buffData.spikeDmgMult||1);c.vy+=Math.sin(a)*8*(p.buffData.spikeDmgMult||1);c.mass=Math.max(2,c.mass-3*(p.buffData.spikeDmgMult||1));updateRadius(c)}sfxSplit()
   }}}}
 }
 
 // ============ DECAY ============
-function processDecay(){for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass>CFG.MIN_MASS){c.mass-=Math.max(c.mass*CFG.DECAY_RATE,.3);if(c.mass<CFG.MIN_MASS)c.mass=CFG.MIN_MASS;updateRadius(c)}}}}
+function processDecay(){for(const p of players){if(!p.alive)continue;for(const c of p.cells){if(c.mass>CFG.MIN_MASS){c.mass-=Math.max(c.mass*CFG.DECAY_RATE*(p.buffData.decayMult||1),.3);if(c.mass<CFG.MIN_MASS)c.mass=CFG.MIN_MASS;updateRadius(c)}}}}
 
 // ============ SPECTATE ============
 let isSpectating=false,spectateId=null;
@@ -545,6 +598,7 @@ function quitGame(){
   if(replayId)cancelAnimationFrame(replayId);if(spectateId)cancelAnimationFrame(spectateId);
   escHint.style.display='none';spectateHint.textContent='';
   deathScreen.style.display='none';startScreen.style.display='flex';
+  document.getElementById('buffPanel').classList.remove('open');
   startDemo();startBGM();
 }
 
@@ -558,7 +612,19 @@ function update(){
   processMerge(player);
 
   // space hold for continuous split
-  if(keys[' ']&&Date.now()-lastSplitTime>CFG.SPLIT_INTERVAL){doSplit(player);lastSplitTime=Date.now()}
+  const splitInterval=CFG.SPLIT_INTERVAL*(player.buffData.splitCdMult||1);
+  if(keys[' ']&&Date.now()-lastSplitTime>splitInterval){doSplit(player);lastSplitTime=Date.now()}
+
+  // buff timer (金铲铲模式, 15s)
+  if(gameModeSel.value==='shovel'&&player.alive&&Date.now()-buffTimer>15000){
+    buffTimer=Date.now();showBuffSelection();
+  }
+
+  // regeneration buff
+  if(player.alive&&player.buffData.regenRate>0){
+    const regenMass=player.buffData.regenRate/60;
+    for(const c of player.cells){c.mass+=regenMass;updateRadius(c)}
+  }
 
   for(const p of players){if(p.isBot&&p.alive){updateBot(p);movePlayer(p);processMerge(p)}}
   // record trails for skin effects
@@ -627,7 +693,14 @@ function update(){
   }
   for(const sf of superFoods)sf.pulse+=.03;
 
-  if(player.alive)scoreEl.textContent=`质量: ${Math.floor(totalMass(player))}  |  得分: ${Math.floor(totalMass(player)*10)}`;
+  if(player.alive){
+    const scoreText=`质量: ${Math.floor(totalMass(player))}  |  得分: ${Math.floor(totalMass(player)*10)}`;
+    if(gameModeSel.value==='shovel'){
+      const remain=Math.max(0,Math.ceil((15000-(Date.now()-buffTimer))/1000));
+      const buffNames=player.ownedBuffs.length?player.ownedBuffs.map(id=>BUFF_POOL.find(b=>b.id===id)).filter(Boolean).map(b=>b.icon+b.name).join(' '):'暂无';
+      scoreEl.textContent=`${scoreText}  |  ⏳${remain}s  |  ✨${buffNames}`;
+    }else{scoreEl.textContent=scoreText}
+  }
   const tm=totalMass(player);if(tm>player.maxMass)player.maxMass=tm;
   updateLeaderboard();updateLevelDisplay();
 
@@ -973,7 +1046,7 @@ function gameOver(victim){
 
   const achDiv=document.getElementById('achievements');
   achDiv.innerHTML=playerData.achievements.slice(-3).map(a=>`<div class="achieve">⭐ ${a}</div>`).join('');
-  sfxDeath();deathScreen.style.display='flex';
+  sfxDeath();deathScreen.style.display='flex';document.getElementById('buffPanel').classList.remove('open');
 }
 
 // ============ START GAME ============
@@ -1006,12 +1079,64 @@ function startGame(name){
     CFG.DECAY_INTERVAL=1500;CFG.FOOD_COUNT=500;
   }
   if(mode==='endless'){CFG.DECAY_RATE=0;CFG.DECAY_INTERVAL=999999;CFG.SUPER_FOOD_INTERVAL=15000}
+  if(mode==='shovel'){
+    player.buffData=createDefaultBuffData();player.ownedBuffs=[];
+    buffTimer=Date.now();CFG.DECAY_RATE=0.003;CFG.DECAY_INTERVAL=3000;
+    for(let i=0;i<5;i++){const bot=createPlayer('shovel_'+i,['暴走球','狂怒球','毁灭球','混沌球','暗影'][i],true);bot.cells=[createCell(rand(100,CFG.MAP-100),rand(100,CFG.MAP-100),rand(20,35))];players.push(bot)}
+  }
 
   spawnFoods();
   const lv=playerData.level;document.querySelector('#startScreen .rank').textContent=`${RANK_NAMES[getRank(lv)]} Lv.${lv}`;
 
   gameStartTime=Date.now();
   gameRunning=true;if(animId)cancelAnimationFrame(animId);gameLoop();
+}
+
+// ============ BUFF SELECTION ============
+function showBuffSelection(){
+  if(!player||!player.alive)return;
+  const candidates=BUFF_POOL.filter(b=>b.tier===1||Math.random()<.5);
+  const pool=[];const used=new Set();
+  while(pool.length<3&&used.size<BUFF_POOL.length){
+    const b=candidates.length?candidates[randI(0,candidates.length-1)]:BUFF_POOL[randI(0,BUFF_POOL.length-1)];
+    if(!used.has(b.id)){used.add(b.id);pool.push(b)}
+  }
+  while(pool.length<3&&used.size<BUFF_POOL.length){
+    const b=BUFF_POOL[randI(0,BUFF_POOL.length-1)];
+    if(!used.has(b.id)){pool.push(b)}
+  }
+  const container=document.getElementById('buffCards');container.innerHTML='';
+  pool.forEach((b,i)=>{
+    const card=document.createElement('div');
+    card.className='buff-card'+(b.tier===2?' tier2':'');
+    card.innerHTML=`
+      <span class="icon">${b.icon}</span>
+      <div class="name">${b.name}</div>
+      <div class="desc">${b.desc}</div>
+      <span class="rarity ${b.tier===1?'t1':'t2'}">${b.tier===1?'普通':'稀有'}</span>
+    `;
+    card.addEventListener('click',()=>selectBuff(i,pool));
+    card.addEventListener('mouseenter',()=>playTone(600,.05,'sine',.05));
+    container.appendChild(card);
+  });
+  document.getElementById('buffPanel').classList.add('open');
+  buffCountdownEl=document.getElementById('buffTime');
+  if(buffCountdownEl)buffCountdownEl.textContent='';
+  gameRunning=false;sfxAchieve();
+}
+function selectBuff(idx,pool){
+  if(!player||!player.alive)return;
+  const b=pool[idx];
+  b.apply(player.buffData);
+  player.ownedBuffs.push(b.id);
+  // apply bonuses that need immediate effect
+  if(b.id==='bonusMass'&&player.cells.length){const mc=getMaxCell(player);mc.mass+=5;updateRadius(mc)}
+  if(b.id==='maxCell'){for(const c of player.cells){c.mass+=2;updateRadius(c)}}
+  document.getElementById('buffPanel').classList.remove('open');
+  sfxEat();
+  buffTimer=Date.now();
+  gameRunning=true;
+  announce(`✨ 获得强化: ${b.icon} ${b.name}`,'#ffd700');
 }
 
 // ============ GAME LOOP ============
