@@ -748,9 +748,8 @@ function update(){
   // realm logic: collect treasures
   if(inRealm&&player&&player.alive){
     const rcx=CFG.MAP*2, rcy=CFG.MAP/2;
-    for(const c of player.cells){
-      if(c.x<rcx-200||c.x>rcx+200||c.y<rcy-200||c.y>rcy+200){c.x+=rcx-c.x>0?3:-3;c.y+=rcy-c.y>0?3:-3}
-    }
+    // teleport cells to realm on first frame
+    for(const c of player.cells){if(Math.abs(c.x-rcx)>500){c.x=rcx+rand(-50,50);c.y=rcy+rand(-50,50)}}
     for(const tr of realmTreasures){if(tr.taken)continue;
       for(const c of player.cells){if(c.mass<1)continue;if(dist(c,tr)<c.radius+tr.radius){tr.taken=true;spawnParticles(tr.x,tr.y,'#ffd700',15,6,4);
         if(tr.type==='mass'){const add=rand(20,50);for(const cl of player.cells){cl.mass+=add/player.cells.length;updateRadius(cl)};announce(`💪 力量宝藏 +${add} 质量！`,'#ffd700')}
