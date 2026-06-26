@@ -499,7 +499,7 @@ let decayTimer=0,superFoodTimer=0,showMinimap=true,gameStartTime=0,foodMultLevel
 let spaceHoldTime=0,lastSplitTime=0;
 let isDemo=false,demoId=null;
 let isPaused=false;
-let shakeIntensity=0,killStreak=0,lastKillTime=0;
+let shakeIntensity=0;
 let bgmCtx=null,bgmGain=null;
 
 // ============ ENTITIES ============
@@ -643,12 +643,10 @@ function processEating(){
         const bg=ca.mass>cb.mass?ca:cb,sm=ca.mass>cb.mass?cb:ca,ob=ca.mass>cb.mass?a:b,os=ca.mass>cb.mass?b:a;
         if(d<bg.radius-sm.radius*.3&&bg.mass>sm.mass*1.12){bg.mass+=sm.mass*.5;updateRadius(bg);sm.mass=0;ob.kills++;
           if(ob===player){
-            shakeIntensity=12;killStreak=Date.now()-lastKillTime<5000?killStreak+1:1;lastKillTime=Date.now();
-            const sn=['','','双杀！','三杀！','四杀！','五杀！','超神！'];const si=Math.min(killStreak,6);
-            if(killStreak>=2)announce(`🔥 ${sn[si]}`,'#ff4500');
-          }
+              shakeIntensity=12;
+            }
           if(!os.isBot){gameOver(os);return}
-          spawnParticles(sm.x,sm.y,os.color,40,10,8);spawnParticles(sm.x,sm.y,'#ffd700',15,7,5);announce(`${ob.name} 吞噬了 ${os.name}`,'#ff6b6b');sfxEatPlayer();
+          spawnParticles(sm.x,sm.y,os.color,40,10,8);spawnParticles(sm.x,sm.y,'#ffd700',15,7,5);sfxEatPlayer();
           a.cells=a.cells.filter(c=>c.mass>1);b.cells=b.cells.filter(c=>c.mass>1);
           if(!b.cells.length&&b.isBot){b.cells=[createCell(rand(200,CFG.MAP-200),rand(200,CFG.MAP-200),rand(15,30))];b.kills=0}
           if(!a.cells.length&&a.isBot){a.cells=[createCell(rand(200,CFG.MAP-200),rand(200,CFG.MAP-200),rand(15,30))];a.kills=0}
@@ -767,12 +765,14 @@ function update(){
   }
   // wormhole teleport (with 1s cooldown per cell)
   for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;w1.pulse+=.05;w2.pulse+=.05;
+    let whUsed=false;
     for(const p of players){if(!p.alive)continue;
       for(const c of p.cells){if(c.mass<1||(c._lastWarp&&Date.now()-c._lastWarp<1000))continue;const now=Date.now();
-        if(dist(c,w1)<w1.radius+c.radius){c.x=w2.x+rand(80,130)*(Math.random()<.5?1:-1);c.y=w2.y+rand(80,130)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);if(p===player)playTone(500,.12,'sine',.08)}
-        else if(dist(c,w2)<w2.radius+c.radius){c.x=w1.x+rand(80,130)*(Math.random()<.5?1:-1);c.y=w1.y+rand(80,130)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w2.x,w2.y,'#7c3aed',12,4,3);spawnParticles(w1.x,w1.y,'#7c3aed',12,4,3);if(p===player)playTone(500,.12,'sine',.08)}
+        if(dist(c,w1)<w1.radius+c.radius){c.x=w2.x+rand(80,130)*(Math.random()<.5?1:-1);c.y=w2.y+rand(80,130)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w1.x,w1.y,'#4fc3f7',14,5,4);spawnParticles(w2.x,w2.y,'#4ecca3',14,5,4);if(p===player)playTone(500,.12,'sine',.08);whUsed=true}
+        else if(dist(c,w2)<w2.radius+c.radius){c.x=w1.x+rand(80,130)*(Math.random()<.5?1:-1);c.y=w1.y+rand(80,130)*(Math.random()<.5?1:-1);c._lastWarp=now;spawnParticles(w2.x,w2.y,'#4ecca3',14,5,4);spawnParticles(w1.x,w1.y,'#4fc3f7',14,5,4);if(p===player)playTone(500,.12,'sine',.08);whUsed=true}
       }
     }
+    if(whUsed){w1.x=rand(150,CFG.MAP-150);w1.y=rand(150,CFG.MAP-150);w2.x=rand(150,CFG.MAP-150);w2.y=rand(150,CFG.MAP-150);w1.pulse=0;w2.pulse=0}
   }
 
   for(const p of players){if(p.isBot&&p.alive){updateBot(p);movePlayer(p);processMerge(p)}}
@@ -924,15 +924,22 @@ function draw(){
   }
   // wormholes
   for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;
-    ctx.strokeStyle='rgba(120,80,200,.12)';ctx.lineWidth=1;ctx.setLineDash([4,8]);
+    ctx.strokeStyle='rgba(120,80,200,.1)';ctx.lineWidth=1;ctx.setLineDash([4,8]);
     ctx.beginPath();ctx.moveTo(w1.x,w1.y);ctx.lineTo(w2.x,w2.y);ctx.stroke();ctx.setLineDash([]);
-    for(const w of [w1,w2]){
-      const rp=w.radius+Math.sin(w.pulse)*3;
-      const wg=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,rp);
-      wg.addColorStop(0,'rgba(200,150,255,.7)');wg.addColorStop(.5,'rgba(100,50,200,.35)');wg.addColorStop(1,'rgba(50,0,100,0)');
-      ctx.beginPath();ctx.arc(w.x,w.y,rp,0,Math.PI*2);ctx.fillStyle=wg;ctx.fill();
-      ctx.strokeStyle='rgba(180,130,255,.25)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(w.x,w.y,rp*1.2,0,Math.PI*2);ctx.stroke();
-    }
+    // entry portal (w1) - blue vortex
+    const r1=w1.radius+Math.sin(w1.pulse)*3;
+    const g1=ctx.createRadialGradient(w1.x,w1.y,0,w1.x,w1.y,r1);
+    g1.addColorStop(0,'rgba(150,210,255,.7)');g1.addColorStop(.4,'rgba(80,150,255,.45)');g1.addColorStop(1,'rgba(30,60,150,0)');
+    ctx.beginPath();ctx.arc(w1.x,w1.y,r1,0,Math.PI*2);ctx.fillStyle=g1;ctx.fill();
+    ctx.strokeStyle='rgba(100,180,255,.35)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(w1.x,w1.y,r1*1.12,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(w1.x,w1.y,r1*1.3,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(150,210,255,${.1+Math.sin(w1.pulse*2)*.07})`;ctx.lineWidth=1.5;ctx.setLineDash([5,8]);ctx.stroke();ctx.setLineDash([]);
+    // exit portal (w2) - green rift
+    const r2=w2.radius+Math.sin(w2.pulse+1)*3;
+    const g2=ctx.createRadialGradient(w2.x,w2.y,0,w2.x,w2.y,r2);
+    g2.addColorStop(0,'rgba(150,255,200,.65)');g2.addColorStop(.4,'rgba(50,200,120,.4)');g2.addColorStop(1,'rgba(0,80,40,0)');
+    ctx.beginPath();ctx.arc(w2.x,w2.y,r2,0,Math.PI*2);ctx.fillStyle=g2;ctx.fill();
+    ctx.strokeStyle='rgba(100,255,150,.3)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(w2.x,w2.y,r2*1.08,0,Math.PI*2);ctx.stroke();
   }
   for(const s of spikes)drawSpike(s);
   for(const f of foods){ctx.beginPath();ctx.arc(f.x,f.y,f.radius,0,Math.PI*2);ctx.fillStyle=f.color;ctx.fill();ctx.strokeStyle='rgba(0,0,0,.2)';ctx.lineWidth=1;ctx.stroke()}
@@ -1249,7 +1256,9 @@ function drawMinimap(){
   for(const s2 of spikes){ctx.fillStyle='#2ecc71';ctx.fillRect(mx+s2.x*scale-1,my+s2.y*scale-1,3,3)}
   for(const sf of superFoods){ctx.beginPath();ctx.arc(mx+sf.x*scale,my+sf.y*scale,3,0,Math.PI*2);ctx.fillStyle='#ffd700';ctx.fill()}
   for(const sr of secretRealms){if(sr.used)continue;ctx.fillStyle='rgba(255,215,0,.5)';ctx.beginPath();ctx.arc(mx+sr.x*scale,my+sr.y*scale,4,0,Math.PI*2);ctx.fill()}
-  for(const wh of wormholes){ctx.fillStyle='rgba(150,100,255,.5)';ctx.beginPath();ctx.arc(mx+wh.x*scale,my+wh.y*scale,2.5,0,Math.PI*2);ctx.fill()}
+  for(let i=0;i<wormholes.length;i+=2){const w1=wormholes[i],w2=wormholes[i+1];if(!w1||!w2)continue;
+    ctx.fillStyle='rgba(100,180,255,.5)';ctx.beginPath();ctx.arc(mx+w1.x*scale,my+w1.y*scale,3,0,Math.PI*2);ctx.fill()
+    ctx.fillStyle='rgba(100,255,150,.5)';ctx.beginPath();ctx.arc(mx+w2.x*scale,my+w2.y*scale,3,0,Math.PI*2);ctx.fill()}
   ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.strokeRect(mx+camera.x*scale,my+camera.y*scale,W()*scale,H()*scale);
   // legend
   ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.roundRect(mx+4,my+s-49,54,45,4);ctx.fill();
@@ -1291,7 +1300,7 @@ function updateLevelDisplay(){
 
 // ============ GAME OVER ============
 function gameOver(victim){
-  killStreak=0;
+  
   gameRunning=false;if(animId)cancelAnimationFrame(animId);
   escHint.style.display='none';
   const mass=Math.floor(totalMass(player));
@@ -1320,7 +1329,7 @@ function startGame(name){
   myName=name||'玩家';
   startScreen.style.display='none';deathScreen.style.display='none';
   foods=[];spikes=[];superFoods=[];ejected=[];players=[];particles=[];replayData=[];
-  secretRealms=[];wormholes=[];srTimer=Date.now();whTimer=Date.now();killStreak=0;shakeIntensity=0;foodMultLevel=0;inRealm=false;realmReturn=null;realmTreasures=[];
+  secretRealms=[];wormholes=[];srTimer=Date.now();whTimer=Date.now();shakeIntensity=0;foodMultLevel=0;inRealm=false;realmReturn=null;realmTreasures=[];
   player=null;camera={x:0,y:0};frameCount=0;decayTimer=0;superFoodTimer=0;
   isReplay=false;isSpectating=false;escHint.style.display='block';
   if(replayId)cancelAnimationFrame(replayId);if(spectateId)cancelAnimationFrame(spectateId);
