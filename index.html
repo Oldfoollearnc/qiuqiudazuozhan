@@ -1489,11 +1489,6 @@ function demoLoop(){
   decayTimer+=16;if(decayTimer>=CFG.DECAY_INTERVAL-500){processDecay();decayTimer=0}
   superFoodTimer+=16;if(superFoodTimer>=CFG.SUPER_FOOD_INTERVAL&&superFoods.length<3){superFoods.push(createSuperFood());superFoodTimer=0}
   processEating();spawnFoods();
-  // camera follows leader
-  const sorted=players.filter(p=>p.alive&&p.cells.length).sort((a,b)=>totalMass(b)-totalMass(a));
-  if(sorted.length){const top=sorted[0],cx=top.cells.reduce((s,c)=>s+c.x,0)/top.cells.length,cy=top.cells.reduce((s,c)=>s+c.y,0)/top.cells.length;
-    camera.x=lerp(camera.x,cx-W()/2,.045);camera.y=lerp(camera.y,cy-H()/2,.045);
-    zoom=lerp(zoom,Math.max(.35,1-(totalMass(top)-10)*.0005),.03)}
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96;p.life-=p.decay;if(p.life<=0)particles.splice(i,1)}
   if(particles.length>300)particles.splice(0,particles.length-300);
   for(const sp of players){if(!sp.alive||sp.skin==='none')continue;const sc=getMaxCell(sp);if(!sc||sc.radius<15)continue;const sr=sc.radius,scl=Math.min(3,sr/25),ps=Math.min(2,sr/30),vs=Math.min(1.5,sr/30);
