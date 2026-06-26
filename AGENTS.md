@@ -39,3 +39,4 @@
 - Chinese UI labels throughout
 - `#ui` has `pointer-events:none`, interactive children opt in with `pointer-events:auto`
 - All measurements in canvas coordinates. Camera transform via `ctx.translate` + `ctx.scale`.
+- **Git 提交信息必须使用中文。**
