@@ -541,12 +541,13 @@ function movePlayer(p){
   if(p.isBot){tx=p.targetX;ty=p.targetY}else{tx=camera.x+mouse.x;ty=camera.y+mouse.y}
   const totalM=cs.reduce((s,c)=>s+c.mass,0);
   let sp=speedFactor(totalM)*(p.buffData.speedMult||1);if(p.sprintTimer>0)sp*=CFG.SPRINT_MULTIPLIER;sp=Math.max(.5,sp);
+  const rcx=CFG.MAP*2,rcy=CFG.MAP/2;
   for(const c of cs){
     const dx=tx-c.x,dy=ty-c.y,d=Math.hypot(dx,dy);
     if(d>c.radius*.6){const moveSp=Math.max(.3,Math.min(CFG.BASE_SPEED,sp*(1-c.radius/800)));const a=Math.atan2(dy,dx);c.vx+=Math.cos(a)*moveSp*.25;c.vy+=Math.sin(a)*moveSp*.25}
     c.vx*=.88;c.vy*=.88;c.x+=c.vx;c.y+=c.vy;
-    if(c.x<c.radius){c.x=c.radius;c.vx*=-.5}if(c.x>CFG.MAP-c.radius){c.x=CFG.MAP-c.radius;c.vx*=-.5}
-    if(c.y<c.radius){c.y=c.radius;c.vy*=-.5}if(c.y>CFG.MAP-c.radius){c.y=CFG.MAP-c.radius;c.vy*=-.5}
+    if(inRealm&&c.x<rcx-1500+c.radius){c.x=rcx-1500+c.radius;c.vx*=-.5}else if(!inRealm&&c.x<c.radius){c.x=c.radius;c.vx*=-.5}else if(inRealm&&c.x>rcx+1500-c.radius){c.x=rcx+1500-c.radius;c.vx*=-.5}else if(!inRealm&&c.x>CFG.MAP-c.radius){c.x=CFG.MAP-c.radius;c.vx*=-.5}
+    if(inRealm&&c.y<rcy-1500+c.radius){c.y=rcy-1500+c.radius;c.vy*=-.5}else if(!inRealm&&c.y<c.radius){c.y=c.radius;c.vy*=-.5}else if(inRealm&&c.y>rcy+1500-c.radius){c.y=rcy+1500-c.radius;c.vy*=-.5}else if(!inRealm&&c.y>CFG.MAP-c.radius){c.y=CFG.MAP-c.radius;c.vy*=-.5}
   }
 }
 function speedFactor(mass){if(mass<20)return 1;return Math.max(.4,1.2-Math.sqrt(mass)*.025)}
